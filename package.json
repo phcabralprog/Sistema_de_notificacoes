@@ -1,0 +1,25 @@
+{
+  "name": "sistema-notificacao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API local e consulta de funcionarios no PostgreSQL existente",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "dev": "node --watch backend/src/server.js",
+    "db:test": "node backend/scripts/test-connection.js",
+    "test": "node --test backend/test/*.test.js",
+    "test:ui": "playwright test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "express": "^5.0.0",
+    "pg": "^8.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  }
+}
