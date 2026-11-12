@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132c31">
+  <meta name="description" content="Gerenciamento de funcionários, projetos e acessos.">
+  <title>Gestão de acessos</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230f766e'/%3E%3Cpath d='M12 29V11h16v5H17v3h9v5h-9v5z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/script.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="#funcionarios" data-view-link="funcionarios" aria-label="Gestão de acessos, início">
+        <span class="brand-icon" aria-hidden="true">f<span>·</span></span>
+        <span>Gestão de acessos<small>PESSOAS & PERMISSÕES</small></span>
+      </a>
+      <p class="nav-label">ESPAÇO DE TRABALHO</p>
+      <nav>
+        <a class="nav-item active" href="#funcionarios" data-view-link="funcionarios" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-3-5"/></svg>
+          Funcionários <span class="nav-count" id="nav-count">—</span>
+        </a>
+        <a class="nav-item" href="#projetos" data-view-link="projetos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M4 7V5h6l2 2"/></svg>
+          Projetos <span class="nav-count" id="project-nav-count">—</span>
+        </a>
+        <a class="nav-item" href="/api/funcionarios" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18"/></svg>
+          Consultar API <span class="external" aria-hidden="true">↗</span>
+        </a>
+      </nav>
+      <div class="sidebar-bottom"><span class="local-dot" aria-hidden="true"></span><span>Ambiente local<small>Gestão de funcionários</small></span></div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar"><span>Diretório <span aria-hidden="true">/</span> <strong id="breadcrumb">Funcionários</strong></span><span class="workspace-tag">Gestão de acessos</span></header>
+      <main>
+        <section class="view" id="employees-view">
+          <div class="page-heading">
+            <div><p class="eyebrow">DIRETÓRIO DA EQUIPE</p><h1>Funcionários<span>.</span></h1><p class="subtitle">Pessoas, permissões e prazos em um só lugar.</p></div>
+            <div class="heading-actions">
+              <button class="secondary-button" id="add-employee-button" type="button">+ Adicionar Funcionário</button>
+              <button class="primary-button" id="load-button" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8.3 8.3 0 0 1 20 12M4 12a8.3 8.3 0 0 0 13.9 5.9"/></svg>
+                <span>Listar Funcionários</span>
+              </button>
+            </div>
+          </div>
+
+          <section class="stats" aria-label="Resumo dos cadastros">
+            <article class="stat"><span class="stat-label">Total de funcionários</span><strong id="total">—</strong><span class="stat-caption">Cadastros únicos no diretório</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="active">—</strong><span class="stat-caption">Status do cadastro</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="expiring">—</strong><span class="stat-caption">Ativos · próximos 30 dias</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="expired">—</strong><span class="stat-caption">Ativos · data ultrapassada</span></article>
+          </section>
+
+          <section class="directory" aria-labelledby="directory-heading" aria-busy="false">
+            <div class="directory-title"><div><h2 id="directory-heading">Todos os funcionários <span id="result-count" class="count-badge">0</span></h2><p>Consulte, cadastre e edite os dados dos funcionários.</p></div><span class="updated-at" id="updated-at">Ainda não atualizado</span></div>
+            <div class="toolbar">
+              <label class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">Pesquisar por nome ou EID</span><input id="search" type="search" placeholder="Pesquisar por nome ou EID..." autocomplete="off"></label>
+              <label class="status-filter"><span>Status</span><select id="status"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="pendente">Pendente</option><option value="bloqueado">Bloqueado</option><option value="inativo">Inativo</option></select></label>
+            </div>
+            <div class="notice" id="notice" role="status" aria-live="polite">Carregando funcionários…</div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de funcionários; role horizontalmente para ver todas as colunas">
+              <table>
+                <caption class="sr-only">Funcionários, identificadores, acessos e datas de cadastro</caption>
+                <thead><tr><th scope="col">Nome</th><th scope="col">EID</th><th scope="col">Torre</th><th scope="col">Login</th><th scope="col">Login elevado</th><th scope="col">Status</th><th scope="col">Nova expiração</th><th scope="col">Acessos</th><th scope="col">Observação</th><th scope="col">Criado em</th><th scope="col">Atualizado em</th></tr></thead>
+                <tbody id="employees"></tbody>
+              </table>
+            </div>
+            <div class="table-footer"><span id="table-summary">Aguardando consulta</span><span>Selecione um nome para editar · role para ver todas as colunas <span aria-hidden="true">↔</span></span></div>
+          </section>
+          <footer class="page-footer"><span><span class="dot green" aria-hidden="true"></span> Diretório de funcionários</span><span>Datas de expiração não alteram o status do cadastro.</span></footer>
+        </section>
+
+        <section class="view" id="projects-view" hidden>
+          <div class="page-heading">
+            <div><p class="eyebrow">ORGANIZAÇÃO DO TRABALHO</p><h1>Projetos<span>.</span></h1><p class="subtitle">Organize equipes sem duplicar cadastros de funcionários.</p></div>
+            <button class="primary-button" id="create-project-button" type="button">+ Criar Projeto</button>
+          </div>
+          <section class="directory" aria-labelledby="projects-heading" aria-busy="false">
+            <div class="directory-title"><div><h2 id="projects-heading">Projetos cadastrados <span id="projects-count" class="count-badge">0</span></h2><p>Abra um projeto para consultar e gerenciar sua equipe.</p></div><button class="text-button" id="reload-projects" type="button">Atualizar</button></div>
+            <div class="notice" id="projects-notice" aria-live="polite">Carregando projetos…</div>
+            <div class="project-grid" id="projects-list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="project-detail-view" hidden>
+          <button class="back-button" id="back-to-projects" type="button">← Voltar para projetos</button>
+          <div class="page-heading project-heading">
+            <div><p class="eyebrow">EQUIPE DO PROJETO</p><h1 id="project-title">Projeto<span>.</span></h1><p class="subtitle" id="project-description">Funcionários vinculados ao projeto.</p></div>
+            <div class="heading-actions"><button class="secondary-button" id="edit-project-button" type="button">Editar projeto</button><button class="primary-button" id="add-to-project-button" type="button">+ Adicionar Funcionário ao Projeto</button></div>
+          </div>
+          <section class="stats" aria-label="Resumo do projeto">
+            <article class="stat"><span class="stat-label">Funcionários vinculados</span><strong id="project-total">0</strong><span class="stat-caption">Cadastros únicos neste projeto</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="project-active">0</strong><span class="stat-caption">Status do cadastro</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="project-expiring">0</strong><span class="stat-caption">Ativos · próximos 30 dias</span></article>
+            <article class="stat"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="project-expired">0</strong><span class="stat-caption">Ativos · data ultrapassada</span></article>
+          </section>
+          <section class="directory" aria-labelledby="project-table-heading" aria-busy="false">
+            <div class="directory-title"><div><h2 id="project-table-heading">Equipe <span id="project-result-count" class="count-badge">0</span></h2><p>Remover um vínculo não exclui o funcionário do diretório.</p></div><span class="project-status-badge" id="project-status-badge">Ativo</span></div>
+            <div class="toolbar">
+              <label class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">Pesquisar no projeto por nome ou EID</span><input id="project-search" type="search" placeholder="Pesquisar por nome ou EID..." autocomplete="off"></label>
+              <label class="status-filter"><span>Status</span><select id="project-status-filter"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="pendente">Pendente</option><option value="bloqueado">Bloqueado</option><option value="inativo">Inativo</option></select></label>
+            </div>
+            <div class="notice" id="project-notice" aria-live="polite" hidden></div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Funcionários vinculados ao projeto">
+              <table><thead><tr><th>Nome</th><th>EID</th><th>Torre</th><th>Login</th><th>Login elevado</th><th>Status</th><th>Nova expiração</th><th>Acessos</th><th>Observação</th><th>Ações</th></tr></thead><tbody id="project-employees"></tbody></table>
+            </div>
+            <div class="table-footer"><span id="project-table-summary">Nenhum vínculo carregado</span><span>Os dados vêm do cadastro global do funcionário.</span></div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog class="modal" id="employee-dialog">
+    <form method="dialog" class="modal-card" id="employee-form">
+      <div class="modal-header"><div><p class="eyebrow">CADASTRO GLOBAL</p><h2 id="employee-form-title">Adicionar funcionário</h2></div><button class="close-button" type="button" data-close-dialog aria-label="Fechar">×</button></div>
+      <div class="form-grid">
+        <label class="full-field">Nome <span>*</span><input name="nome" maxlength="150" required></label>
+        <label>EID <span>*</span><input name="eid" maxlength="20" required></label>
+        <label>Torre<input name="torre" maxlength="100"></label>
+        <label>Login<input name="login" maxlength="100"></label>
+        <label>Login elevado<input name="login_elevado" maxlength="100"></label>
+        <label>Status <span>*</span><select name="status" required><option value="pendente">Pendente</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="bloqueado">Bloqueado</option></select></label>
+        <label>Expiração<input name="nova_expiracao" type="date"></label>
+        <label class="full-field">Acessos<textarea name="acessos" rows="3"></textarea></label>
+        <label class="full-field">Observação<textarea name="observacao" rows="3"></textarea></label>
+      </div>
+      <div class="form-message" id="employee-form-message" aria-live="polite"></div>
+      <div class="modal-actions"><button class="secondary-button" type="button" data-close-dialog>Cancelar</button><button class="primary-button" type="submit">Salvar funcionário</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="project-dialog">
+    <form method="dialog" class="modal-card compact-card" id="project-form">
+      <div class="modal-header"><div><p class="eyebrow">PROJETO</p><h2 id="project-form-title">Criar projeto</h2></div><button class="close-button" type="button" data-close-dialog aria-label="Fechar">×</button></div>
+      <div class="form-grid single-column">
+        <label>Nome do projeto <span>*</span><input name="nome" maxlength="150" required></label>
+        <label>Descrição<textarea name="descricao" rows="4"></textarea></label>
+        <label>Status <span>*</span><select name="status" required><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></label>
+      </div>
+      <div class="form-message" id="project-form-message" aria-live="polite"></div>
+      <div class="modal-actions"><button class="secondary-button" type="button" data-close-dialog>Cancelar</button><button class="primary-button" type="submit">Salvar projeto</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="association-dialog">
+    <form method="dialog" class="modal-card compact-card" id="association-form">
+      <div class="modal-header"><div><p class="eyebrow">VINCULAR EQUIPE</p><h2>Adicionar funcionários</h2></div><button class="close-button" type="button" data-close-dialog aria-label="Fechar">×</button></div>
+      <label class="search-box modal-search"><span class="sr-only">Pesquisar funcionários disponíveis</span><input id="association-search" type="search" placeholder="Pesquisar por nome ou EID..." autocomplete="off"></label>
+      <div class="selection-list" id="association-list"></div>
+      <div class="form-message" id="association-form-message" aria-live="polite"></div>
+      <div class="modal-actions"><button class="secondary-button" type="button" data-close-dialog>Cancelar</button><button class="primary-button" type="submit">Adicionar selecionados</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" aria-live="polite" hidden></div>
+</body>
+</html>
