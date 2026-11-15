@@ -88,6 +88,8 @@ nomes repetidos mesmo com diferenças de maiúsculas/minúsculas ou espaços. A
 tabela `funcionario_projeto` tem chave primária composta `(funcionario_id,
 projeto_id)`, referências às duas entidades e data do vínculo. Excluir um projeto
 remove seus vínculos; remover um vínculo ou projeto nunca exclui o funcionário.
+Já a exclusão de um funcionário remove primeiro todos os seus vínculos e depois
+apaga o cadastro global, dentro da mesma transação.
 
 ## Migração de projetos
 
@@ -111,7 +113,7 @@ registros ou tabelas.
 | GET | `/api/funcionarios/:eid` | 200, objeto JSON; 404 se não encontrado |
 | POST | `/api/funcionarios` | 201, objeto criado e cabeçalho Location |
 | PUT | `/api/funcionarios/:eid` | 200, objeto atualizado; 404 se não encontrado |
-| DELETE | `/api/funcionarios/:eid` | 204, sem corpo; 404 se não encontrado |
+| DELETE | `/api/funcionarios/:eid` | Exclui o cadastro e seus vínculos; 204, ou 404 se não encontrado |
 | GET | `/api/funcionarios/:eid/projetos` | Projetos vinculados ao funcionário |
 | GET | `/api/projetos` | Lista projetos e quantidade de funcionários |
 | GET | `/api/projetos/:id` | Consulta um projeto |
@@ -202,16 +204,16 @@ npm.cmd test
 npm.cmd run test:ui
 ```
 
-**Resultados executados nesta implementação:** conexão aprovada, **28 testes
-Node.js aprovados** e **11 testes de navegador aprovados** usando Chrome. A
+**Resultados executados nesta implementação:** conexão aprovada, **29 testes
+Node.js aprovados** e **13 testes de navegador aprovados** usando Chrome. A
 resposta da API foi comparada ao SELECT
 completo, incluindo null, acentos, datas e horários. Os dados reais foram
 comparados antes e depois e permaneceram exatamente iguais.
 
 Os testes da API leem a tabela real. Para POST e PUT, usam `pg_temp.funcionarios`,
 uma tabela temporária com as restrições da tabela real, dentro de uma transação
-desfeita ao final. O DELETE é testado com conexão simulada, sem executar exclusões
-no PostgreSQL. Os testes não invocam os scripts SQL de inicialização nem os
+desfeita ao final. O DELETE global também é testado em tabelas temporárias,
+incluindo a remoção dos vínculos. Os testes não invocam os scripts SQL de inicialização nem os
 exemplos antigos. O usuário de teste precisa de permissão `TEMP` no banco.
 
 Os testes do navegador conferem consulta real, botão, pesquisa, filtro, datas,

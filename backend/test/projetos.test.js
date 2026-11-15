@@ -125,6 +125,15 @@ test('Projetos e vinculos usam tabelas temporarias sem alterar dados reais', { t
       assert.equal(links.rows[0].total, 0);
     });
 
+    await t.test('exclui funcionario vinculado e remove seus vinculos', async () => {
+      const removed = await json(app.base, '/api/funcionarios/TST002', 'DELETE');
+      assert.equal(removed.response.status, 204);
+      const employees = await client.query("SELECT count(*)::int total FROM pg_temp.funcionarios WHERE eid = 'TST002'");
+      assert.equal(employees.rows[0].total, 0);
+      const links = await client.query("SELECT count(*)::int total FROM pg_temp.funcionario_projeto WHERE funcionario_id = 'TST002'");
+      assert.equal(links.rows[0].total, 0);
+    });
+
     await t.test('edita e exclui projeto sem excluir funcionarios', async () => {
       const updated = await json(app.base, `/api/projetos/${projectId}`, 'PUT', { status: 'inativo' });
       assert.equal(updated.response.status, 200);
@@ -132,7 +141,7 @@ test('Projetos e vinculos usam tabelas temporarias sem alterar dados reais', { t
       const removed = await json(app.base, `/api/projetos/${projectId}`, 'DELETE');
       assert.equal(removed.response.status, 204);
       const employees = await client.query('SELECT count(*)::int total FROM pg_temp.funcionarios');
-      assert.equal(employees.rows[0].total, 2);
+      assert.equal(employees.rows[0].total, 1);
       const links = await client.query('SELECT count(*)::int total FROM pg_temp.funcionario_projeto');
       assert.equal(links.rows[0].total, 0);
     });

@@ -179,8 +179,10 @@ test('API com PostgreSQL existente e escritas isoladas', { timeout: 30000 }, asy
         assert.equal(removed.data, null);
         const missing = await json(simulated.base, '/api/funcionarios/OUTRO', 'DELETE');
         assert.equal(missing.response.status, 404);
-        assert.equal(queries[0].text, 'DELETE FROM public.funcionarios WHERE eid = $1 RETURNING eid');
+        assert.equal(queries[0].text, 'DELETE FROM public.funcionario_projeto WHERE funcionario_id = $1');
         assert.deepEqual(queries[0].values, ['FICTICIO']);
+        assert.equal(queries[1].text, 'DELETE FROM public.funcionarios WHERE eid = $1 RETURNING eid');
+        assert.deepEqual(queries[1].values, ['FICTICIO']);
       } finally { await simulated.close(); }
     });
     await t.test('Erro interno nao expoe detalhes do PostgreSQL', async () => {

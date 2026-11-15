@@ -1,14 +1,16 @@
 const { test, expect } = require('@playwright/test');
 // Os testes ficam fora da pasta publicada pelo Express.
 
-test('Consulta real, tabela com onze colunas e atualizacao pelo botao', async ({ page }) => {
+test('Consulta real, tabela com doze colunas e atualizacao pelo botao', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const response = page.waitForResponse((res) => res.url().endsWith('/api/funcionarios'));
   await page.goto('/');
   const data = await (await response).json();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard.');
+  await expect(page.getByRole('link', { name: /Dashboard/ })).toBeVisible();
   await expect(page.locator('#total')).toHaveText(String(data.length));
-  await expect(page.locator('#employees-view thead th')).toHaveCount(11);
+  await expect(page.locator('#employees-view thead th')).toHaveCount(12);
   await expect(page.locator('#employees tr')).toHaveCount(data.length);
   await expect(page.locator('#load-button')).toBeEnabled();
   const reloaded = page.waitForResponse((res) => res.url().endsWith('/api/funcionarios'));
@@ -148,6 +150,26 @@ test('Cadastro de funcionario pelo modal envia a API e atualiza a tabela', async
   expect(received).toMatchObject({ nome: 'Carlos Teste', eid: '00003', status: 'ativo' });
 });
 
+test('Exclui funcionario pela pagina principal apos confirmacao', async ({ page }) => {
+  let employees = records.map((person) => ({ ...person }));
+  let deletedEid;
+  await page.route('**/api/funcionarios/*', async (route) => {
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    deletedEid = decodeURIComponent(route.request().url().split('/').pop());
+    employees = employees.filter((person) => person.eid !== deletedEid);
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.route('**/api/funcionarios', (route) => route.fulfill({ json: employees }));
+  await page.goto('/');
+  const row = page.locator('#employees tr').filter({ hasText: 'João da Silva' });
+  page.once('dialog', (dialog) => dialog.accept());
+  await row.getByRole('button', { name: 'Excluir funcionário' }).click();
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).not.toContainText('João da Silva');
+  await expect(page.locator('#toast')).toContainText('Funcionário excluído');
+  expect(deletedEid).toBe('00001');
+});
+
 test('Cria projeto pela interface e abre sua tabela individual', async ({ page }) => {
   const projects = [];
   await page.route('**/api/funcionarios', (route) => route.fulfill({ json: records }));
@@ -209,4 +231,33 @@ test('Vincula funcionario existente e remove somente o vinculo na interface', as
   await page.locator('#project-employees').getByRole('button', { name: 'Remover do projeto' }).first().click();
   await expect(page.locator('#project-employees tr')).toHaveCount(1);
   expect(deleted).toBe(true);
+});
+
+test('Exclui cadastro global pela equipe do projeto', async ({ page }) => {
+  const project = { id: '8', nome: 'Projeto Gamma', descricao: null, status: 'ativo', total_funcionarios: 1 };
+  let employees = records.map((person) => ({ ...person }));
+  let linked = [employees[0]];
+  let deletedEid;
+  await page.route('**/api/funcionarios/*', async (route) => {
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    deletedEid = decodeURIComponent(route.request().url().split('/').pop());
+    employees = employees.filter((person) => person.eid !== deletedEid);
+    linked = linked.filter((person) => person.eid !== deletedEid);
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.route('**/api/funcionarios', (route) => route.fulfill({ json: employees }));
+  await page.route('**/api/projetos', (route) => route.fulfill({
+    json: [{ ...project, total_funcionarios: linked.length }],
+  }));
+  await page.route('**/api/projetos/8/funcionarios', (route) => route.fulfill({ json: linked }));
+  await page.goto('/');
+  await page.getByRole('link', { name: /Projetos/ }).click();
+  await page.getByRole('button', { name: 'Abrir projeto' }).click();
+  const row = page.locator('#project-employees tr').filter({ hasText: 'João da Silva' });
+  page.once('dialog', (dialog) => dialog.accept());
+  await row.getByRole('button', { name: 'Excluir funcionário' }).click();
+  await expect(page.locator('#project-employees tr')).toHaveCount(0);
+  await expect(page.locator('#project-notice')).toContainText('Nenhum funcionário vinculado');
+  await expect(page.locator('#toast')).toContainText('Funcionário excluído');
+  expect(deletedEid).toBe('00001');
 });

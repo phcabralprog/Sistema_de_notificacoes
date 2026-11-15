@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#132c31">
+  <meta name="theme-color" content="#000000">
   <meta name="description" content="Gerenciamento de funcionários, projetos e acessos.">
   <title>Gestão de acessos</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230f766e'/%3E%3Cpath d='M12 29V11h16v5H17v3h9v5h-9v5z' fill='white'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23ad00ff'/%3E%3Cpath d='M12 29V11h16v5H17v3h9v5h-9v5z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script src="/script.js" defer></script>
 </head>
@@ -21,7 +21,7 @@
       <nav>
         <a class="nav-item active" href="#funcionarios" data-view-link="funcionarios" aria-current="page">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-3-5"/></svg>
-          Funcionários <span class="nav-count" id="nav-count">—</span>
+          Dashboard <span class="nav-count" id="nav-count">—</span>
         </a>
         <a class="nav-item" href="#projetos" data-view-link="projetos">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M4 7V5h6l2 2"/></svg>
@@ -32,11 +32,11 @@
     </aside>
 
     <div class="main-shell">
-      <header class="topbar"><span>Diretório <span aria-hidden="true">/</span> <strong id="breadcrumb">Funcionários</strong></span><span class="workspace-tag">Gestão de acessos</span></header>
+      <header class="topbar"><span>Diretório <span aria-hidden="true">/</span> <strong id="breadcrumb">Dashboard</strong></span><span class="workspace-tag">Gestão de acessos</span></header>
       <main>
         <section class="view" id="employees-view">
           <div class="page-heading">
-            <div><p class="eyebrow">DIRETÓRIO DA EQUIPE</p><h1>Funcionários<span>.</span></h1><p class="subtitle">Pessoas, permissões e prazos em um só lugar.</p></div>
+            <div><p class="eyebrow">DIRETÓRIO DA EQUIPE</p><h1>Dashboard<span>.</span></h1><p class="subtitle">Pessoas, permissões e prazos em um só lugar.</p></div>
             <div class="heading-actions">
               <button class="secondary-button" id="add-employee-button" type="button">+ Adicionar Funcionário</button>
               <button class="primary-button" id="load-button" type="button">
@@ -63,11 +63,11 @@
             <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de funcionários; role horizontalmente para ver todas as colunas">
               <table>
                 <caption class="sr-only">Funcionários, identificadores, acessos e datas de cadastro</caption>
-                <thead><tr><th scope="col">Nome</th><th scope="col">EID</th><th scope="col">Torre</th><th scope="col">Login</th><th scope="col">Login elevado</th><th scope="col">Status</th><th scope="col">Nova expiração</th><th scope="col">Acessos</th><th scope="col">Observação</th><th scope="col">Criado em</th><th scope="col">Atualizado em</th></tr></thead>
+                <thead><tr><th scope="col">Nome</th><th scope="col">EID</th><th scope="col">Torre</th><th scope="col">Login</th><th scope="col">Login elevado</th><th scope="col">Status</th><th scope="col">Nova expiração</th><th scope="col">Acessos</th><th scope="col">Observação</th><th scope="col">Criado em</th><th scope="col">Atualizado em</th><th scope="col">Ações</th></tr></thead>
                 <tbody id="employees"></tbody>
               </table>
             </div>
-            <div class="table-footer"><span id="table-summary">Aguardando consulta</span><span>Selecione um nome para editar · role para ver todas as colunas <span aria-hidden="true">↔</span></span></div>
+            <div class="table-footer"><span id="table-summary">Aguardando consulta</span><span>Selecione um nome para editar · use Excluir para apagar o cadastro <span aria-hidden="true">↔</span></span></div>
           </section>
           <footer class="page-footer"><span><span class="dot green" aria-hidden="true"></span> Diretório de funcionários</span><span>Datas de expiração não alteram o status do cadastro.</span></footer>
         </section>
@@ -97,7 +97,7 @@
             <article class="stat"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="project-expired">0</strong><span class="stat-caption">Ativos · data ultrapassada</span></article>
           </section>
           <section class="directory" aria-labelledby="project-table-heading" aria-busy="false">
-            <div class="directory-title"><div><h2 id="project-table-heading">Equipe <span id="project-result-count" class="count-badge">0</span></h2><p>Remover um vínculo não exclui o funcionário do diretório.</p></div><span class="project-status-badge" id="project-status-badge">Ativo</span></div>
+            <div class="directory-title"><div><h2 id="project-table-heading">Equipe <span id="project-result-count" class="count-badge">0</span></h2><p>Remova apenas o vínculo ou exclua definitivamente o cadastro.</p></div><span class="project-status-badge" id="project-status-badge">Ativo</span></div>
             <div class="toolbar">
               <label class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">Pesquisar no projeto por nome ou EID</span><input id="project-search" type="search" placeholder="Pesquisar por nome ou EID..." autocomplete="off"></label>
               <label class="status-filter"><span>Status</span><select id="project-status-filter"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="pendente">Pendente</option><option value="bloqueado">Bloqueado</option><option value="inativo">Inativo</option></select></label>
@@ -106,7 +106,7 @@
             <div class="table-scroll" tabindex="0" role="region" aria-label="Funcionários vinculados ao projeto">
               <table><thead><tr><th>Nome</th><th>EID</th><th>Torre</th><th>Login</th><th>Login elevado</th><th>Status</th><th>Nova expiração</th><th>Acessos</th><th>Observação</th><th>Ações</th></tr></thead><tbody id="project-employees"></tbody></table>
             </div>
-            <div class="table-footer"><span id="project-table-summary">Nenhum vínculo carregado</span><span>Os dados vêm do cadastro global do funcionário.</span></div>
+            <div class="table-footer"><span id="project-table-summary">Nenhum vínculo carregado</span><span>Excluir funcionário também remove seus vínculos com outros projetos.</span></div>
           </section>
         </section>
       </main>

@@ -39,9 +39,21 @@ function createController(db) {
     },
     async remove(req, res) {
       const eid = validateEid(req.params.eid);
-      const { rows } = await db.query('DELETE FROM public.funcionarios WHERE eid = $1 RETURNING eid', [eid]);
-      requireRecord(rows);
-      res.status(204).end();
+      const connection = typeof db.connect === 'function' ? await db.connect() : db;
+      const ownsConnection = connection !== db;
+      try {
+        if (ownsConnection) await connection.query('BEGIN');
+        await connection.query('DELETE FROM public.funcionario_projeto WHERE funcionario_id = $1', [eid]);
+        const { rows } = await connection.query('DELETE FROM public.funcionarios WHERE eid = $1 RETURNING eid', [eid]);
+        requireRecord(rows);
+        if (ownsConnection) await connection.query('COMMIT');
+        res.status(204).end();
+      } catch (error) {
+        if (ownsConnection) await connection.query('ROLLBACK');
+        throw error;
+      } finally {
+        if (ownsConnection) connection.release();
+      }
     },
   };
 }

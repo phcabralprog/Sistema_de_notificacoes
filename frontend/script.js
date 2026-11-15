@@ -180,6 +180,13 @@ function renderEmployees() {
     employeeBaseCells(row, person, index, true);
     cell(row, person.criado_em ? dateTime.format(new Date(person.criado_em)) : null);
     cell(row, person.atualizado_em ? dateTime.format(new Date(person.atualizado_em)) : null);
+    const actions = cell(row, '');
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'link-danger';
+    remove.textContent = 'Excluir funcionário';
+    remove.addEventListener('click', () => deleteEmployee(person, remove));
+    actions.replaceChildren(remove);
     fragment.append(row);
   });
   ui.body.replaceChildren(fragment);
@@ -396,10 +403,18 @@ function renderProjectEmployees() {
     const actions = cell(row, '');
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'link-danger';
+    remove.className = 'link-action';
     remove.textContent = 'Remover do projeto';
     remove.addEventListener('click', () => removeFromProject(person));
-    actions.replaceChildren(remove);
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'link-danger';
+    deleteButton.textContent = 'Excluir funcionário';
+    deleteButton.addEventListener('click', () => deleteEmployee(person, deleteButton));
+    const actionGroup = document.createElement('div');
+    actionGroup.className = 'row-actions';
+    actionGroup.append(remove, deleteButton);
+    actions.replaceChildren(actionGroup);
     fragment.append(row);
   });
   document.querySelector('#project-employees').replaceChildren(fragment);
@@ -449,6 +464,26 @@ async function removeFromProject(person) {
     toast('Vínculo removido. O cadastro do funcionário foi preservado.');
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+async function deleteEmployee(person, trigger) {
+  const confirmed = window.confirm(
+    `Excluir ${person.nome} permanentemente? O cadastro e todos os vínculos com projetos serão removidos. Esta ação não pode ser desfeita.`,
+  );
+  if (!confirmed) return;
+  trigger.disabled = true;
+  try {
+    await request(`/api/funcionarios/${encodeURIComponent(person.eid)}`, { method: 'DELETE' });
+    const refreshes = [loadEmployees()];
+    if (state.projectsLoaded) refreshes.push(loadProjects());
+    if (state.currentProject) refreshes.push(loadProjectEmployees());
+    await Promise.all(refreshes);
+    toast('Funcionário excluído. Seus vínculos com projetos também foram removidos.');
+  } catch (error) {
+    toast(error.message, true);
+  } finally {
+    trigger.disabled = false;
   }
 }
 
@@ -515,7 +550,7 @@ function showView(view) {
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
-  if (view === 'funcionarios') document.querySelector('#breadcrumb').textContent = 'Funcionários';
+  if (view === 'funcionarios') document.querySelector('#breadcrumb').textContent = 'Dashboard';
   if (view === 'projetos') document.querySelector('#breadcrumb').textContent = 'Projetos';
 }
 
