@@ -14,7 +14,7 @@ test('Consulta real, tabela com doze colunas e atualizacao pelo botao', async ({
   await expect(page.locator('#employees tr')).toHaveCount(data.length);
   await expect(page.locator('#load-button')).toBeEnabled();
   const reloaded = page.waitForResponse((res) => res.url().endsWith('/api/funcionarios'));
-  await page.getByRole('button', { name: 'Listar Funcionários' }).click();
+  await page.getByRole('button', { name: 'Refresh' }).click();
   expect((await reloaded).status()).toBe(200);
   await expect(page.locator('#load-button')).toBeEnabled();
   expect(errors).toEqual([]);
@@ -22,10 +22,10 @@ test('Consulta real, tabela com doze colunas e atualizacao pelo botao', async ({
 });
 
 const records = [
-  { eid: '00001', nome: 'João da Silva', torre: 'Suporte', login: 'joao', login_elevado: null,
+  { eid: '00001', nome: 'João da Silva', projetos: [{ id: '10', nome: 'Projeto Alpha', status: 'ativo' }, { id: '11', nome: 'Projeto Beta', status: 'inativo' }], torre: 'Suporte', login: 'joao', login_elevado: null,
     status: 'ativo', nova_expiracao: '2028-02-29', acessos: 'VPN', observacao: null,
     criado_em: '2026-11-12T12:00:00Z', atualizado_em: '2026-11-12T12:00:00Z' },
-  { eid: '00002', nome: 'Ana Exemplo', torre: null, login: null, login_elevado: null,
+  { eid: '00002', nome: 'Ana Exemplo', projetos: [], torre: null, login: null, login_elevado: null,
     status: 'pendente', nova_expiracao: null, acessos: null, observacao: '<img src=x onerror=alert(1)>',
     criado_em: '2026-11-12T12:00:00Z', atualizado_em: '2026-11-12T12:00:00Z' },
 ];
@@ -38,17 +38,47 @@ async function fixture(page) {
 
 test('Pesquisa ignora acentos, encontra EID e combina o filtro de status', async ({ page }) => {
   await fixture(page);
-  await page.getByRole('searchbox').fill('joao');
+  await page.locator('#search').fill('joao');
   await expect(page.locator('#employees tr')).toHaveCount(1);
   await expect(page.locator('#employees')).toContainText('João da Silva');
-  await page.getByRole('searchbox').fill('00002');
+  await page.locator('#search').fill('00002');
   await expect(page.locator('#employees tr')).toHaveCount(1);
   await expect(page.locator('#employees')).toContainText('Ana Exemplo');
-  await page.locator('#status').selectOption('ativo');
+  await page.locator('#employee-filter-attribute').selectOption('status');
+  await page.locator('#employee-filter-value').selectOption('ativo');
   await expect(page.locator('#employees tr')).toHaveCount(0);
   await expect(page.getByRole('status')).toContainText('Nenhum resultado');
-  await page.getByRole('searchbox').fill('');
+  await page.locator('#search').fill('');
   await expect(page.locator('#employees tr')).toHaveCount(1);
+});
+
+test('Filtro unico permite escolher o atributo e depois um valor existente', async ({ page }) => {
+  await fixture(page);
+  await expect(page.locator('#employee-filter-attribute')).toBeVisible();
+  await expect(page.locator('#employee-filter-value')).toBeDisabled();
+
+  await page.locator('#employee-filter-attribute').selectOption('torre');
+  await page.locator('#employee-filter-value').selectOption('Suporte');
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('João da Silva');
+
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.locator('#employee-filter-attribute').selectOption('projetos');
+  await page.locator('#employee-filter-value').selectOption('Projeto Beta');
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('João da Silva');
+
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.locator('#employee-filter-attribute').selectOption('observacao');
+  await page.locator('#employee-filter-value').selectOption('<img src=x onerror=alert(1)>');
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('Ana Exemplo');
+
+  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.locator('#employee-filter-attribute').selectOption('nova_expiracao');
+  await page.locator('#employee-filter-value').selectOption('2028-02-29');
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('João da Silva');
 });
 
 test('Datas e null sao exibidos corretamente; textos nao viram HTML', async ({ page }) => {
@@ -57,6 +87,37 @@ test('Datas e null sao exibidos corretamente; textos nao viram HTML', async ({ p
   await expect(page.locator('#employees')).toContainText('—');
   await expect(page.locator('#employees')).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('#employees img')).toHaveCount(0);
+});
+
+test('Indicadores filtram as listas de ativos, a vencer e vencidos', async ({ page }) => {
+  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const expiringDate = new Date();
+  expiringDate.setDate(expiringDate.getDate() + 5);
+  const expiredDate = new Date();
+  expiredDate.setDate(expiredDate.getDate() - 1);
+  const filteredRecords = [
+    { ...records[0], eid: 'ATIVO1', nome: 'Ativo sem prazo', nova_expiracao: null },
+    { ...records[0], eid: 'PRAZO1', nome: 'Prazo próximo', nova_expiracao: formatDate(expiringDate) },
+    { ...records[0], eid: 'VENCIDO1', nome: 'Prazo vencido', nova_expiracao: formatDate(expiredDate) },
+    { ...records[1], eid: 'PENDENTE1', nome: 'Cadastro pendente' },
+  ];
+  await page.route('**/api/funcionarios', (route) => route.fulfill({ json: filteredRecords }));
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Mostrar funcionários ativos' }).click();
+  await expect(page.locator('#employees tr')).toHaveCount(3);
+  await expect(page.locator('[data-employee-filter="active"]')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'Mostrar funcionários a vencer' }).click();
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('Prazo próximo');
+
+  await page.getByRole('button', { name: 'Mostrar funcionários vencidos' }).click();
+  await expect(page.locator('#employees tr')).toHaveCount(1);
+  await expect(page.locator('#employees')).toContainText('Prazo vencido');
+
+  await page.getByRole('button', { name: 'Mostrar todos os funcionários' }).click();
+  await expect(page.locator('#employees tr')).toHaveCount(4);
 });
 
 test('Consulta vazia mostra mensagem e contadores zerados', async ({ page }) => {
@@ -109,7 +170,7 @@ test('Interface em celular sem rolagem horizontal fora da tabela', async ({ page
   await fixture(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator('#load-button')).toBeVisible();
-  await page.getByRole('searchbox').fill('00001');
+  await page.locator('#search').fill('00001');
   await expect(page.locator('#employees tr')).toHaveCount(1);
   await page.screenshot({ path: 'artifacts/funcionarios-mobile.png', fullPage: true });
 });
@@ -150,7 +211,7 @@ test('Cadastro de funcionario pelo modal envia a API e atualiza a tabela', async
   expect(received).toMatchObject({ nome: 'Carlos Teste', eid: '00003', status: 'ativo' });
 });
 
-test('Exclui funcionario pela pagina principal apos confirmacao', async ({ page }) => {
+test('Abre todos os atributos e exclui funcionario somente pelo modal', async ({ page }) => {
   let employees = records.map((person) => ({ ...person }));
   let deletedEid;
   await page.route('**/api/funcionarios/*', async (route) => {
@@ -160,10 +221,27 @@ test('Exclui funcionario pela pagina principal apos confirmacao', async ({ page 
     await route.fulfill({ status: 204, body: '' });
   });
   await page.route('**/api/funcionarios', (route) => route.fulfill({ json: employees }));
+  await page.route('**/api/funcionarios/*/projetos', (route) => route.fulfill({ json: [
+    { id: '10', nome: 'Projeto Alpha', status: 'ativo', vinculado_em: '2026-11-12T12:00:00Z' },
+    { id: '11', nome: 'Projeto Beta', status: 'inativo', vinculado_em: '2026-11-13T12:00:00Z' },
+  ] }));
   await page.goto('/');
   const row = page.locator('#employees tr').filter({ hasText: 'João da Silva' });
+  await expect(row.getByRole('button', { name: 'Excluir funcionário' })).toHaveCount(0);
+  await row.getByText('Suporte').click();
+  const employeeDialog = page.locator('#employee-dialog');
+  await expect(employeeDialog).toBeVisible();
+  await expect(employeeDialog.getByRole('heading', { level: 2 })).toHaveText('Dados do funcionário');
+  await expect(employeeDialog.getByLabel('Nome *')).toHaveValue('João da Silva');
+  await expect(employeeDialog.getByLabel('EID *')).toHaveValue('00001');
+  await expect(employeeDialog.getByLabel('Criado em')).toHaveValue(/12\/11\/2026/);
+  await expect(employeeDialog.getByLabel('Atualizado em')).toHaveValue(/12\/11\/2026/);
+  await expect(employeeDialog.locator('#employee-project-count')).toHaveText('2');
+  await expect(employeeDialog.locator('#employee-project-list')).toContainText('Projeto Alpha');
+  await expect(employeeDialog.locator('#employee-project-list')).toContainText('Projeto Beta');
   page.once('dialog', (dialog) => dialog.accept());
-  await row.getByRole('button', { name: 'Excluir funcionário' }).click();
+  await employeeDialog.getByRole('button', { name: 'Excluir funcionário' }).click();
+  await expect(employeeDialog).not.toBeVisible();
   await expect(page.locator('#employees tr')).toHaveCount(1);
   await expect(page.locator('#employees')).not.toContainText('João da Silva');
   await expect(page.locator('#toast')).toContainText('Funcionário excluído');
@@ -246,6 +324,7 @@ test('Exclui cadastro global pela equipe do projeto', async ({ page }) => {
     await route.fulfill({ status: 204, body: '' });
   });
   await page.route('**/api/funcionarios', (route) => route.fulfill({ json: employees }));
+  await page.route('**/api/funcionarios/*/projetos', (route) => route.fulfill({ json: [project] }));
   await page.route('**/api/projetos', (route) => route.fulfill({
     json: [{ ...project, total_funcionarios: linked.length }],
   }));
@@ -254,8 +333,11 @@ test('Exclui cadastro global pela equipe do projeto', async ({ page }) => {
   await page.getByRole('link', { name: /Projetos/ }).click();
   await page.getByRole('button', { name: 'Abrir projeto' }).click();
   const row = page.locator('#project-employees tr').filter({ hasText: 'João da Silva' });
+  await row.getByText('João da Silva').click();
+  const employeeDialog = page.locator('#employee-dialog');
+  await expect(employeeDialog).toBeVisible();
   page.once('dialog', (dialog) => dialog.accept());
-  await row.getByRole('button', { name: 'Excluir funcionário' }).click();
+  await employeeDialog.getByRole('button', { name: 'Excluir funcionário' }).click();
   await expect(page.locator('#project-employees tr')).toHaveCount(0);
   await expect(page.locator('#project-notice')).toContainText('Nenhum funcionário vinculado');
   await expect(page.locator('#toast')).toContainText('Funcionário excluído');

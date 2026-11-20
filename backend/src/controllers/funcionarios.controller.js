@@ -9,7 +9,20 @@ function requireRecord(rows) {
 function createController(db) {
   return {
     async list(req, res) {
-      const { rows } = await db.query('SELECT * FROM public.funcionarios ORDER BY eid');
+      const { rows } = await db.query(`
+        SELECT f.*,
+          COALESCE((
+            SELECT json_agg(
+              json_build_object('id', p.id::text, 'nome', p.nome, 'status', p.status)
+              ORDER BY lower(p.nome), p.id
+            )
+            FROM public.funcionario_projeto fp
+            JOIN public.projetos p ON p.id = fp.projeto_id
+            WHERE fp.funcionario_id = f.eid
+          ), '[]'::json) AS projetos
+        FROM public.funcionarios f
+        ORDER BY f.eid
+      `);
       res.json(rows);
     },
     async get(req, res) {

@@ -37,6 +37,12 @@ test('API com PostgreSQL existente e escritas isoladas', { timeout: 30000 }, asy
   let isolatedApp;
   let client;
   const before = asJson((await pool.query('SELECT * FROM public.funcionarios ORDER BY eid')).rows);
+  const projectsBefore = asJson((await pool.query(`
+    SELECT fp.funcionario_id, p.id, p.nome, p.status
+    FROM public.funcionario_projeto fp
+    JOIN public.projetos p ON p.id = fp.projeto_id
+    ORDER BY fp.funcionario_id, lower(p.nome), p.id
+  `)).rows);
   try {
     publicApp = await serve(pool);
     await t.test('Conexao e permissao de leitura da tabela', async () => {
@@ -49,12 +55,18 @@ test('API com PostgreSQL existente e escritas isoladas', { timeout: 30000 }, asy
       `);
       assert.deepEqual(rows.map((r) => r.definition), ['PRIMARY KEY (eid)']);
     });
-    await t.test('GET retorna JSON identico ao SELECT do banco, incluindo null e datas', async () => {
+    await t.test('GET retorna funcionarios com projetos, incluindo null e datas', async () => {
       const { response, data } = await json(publicApp.base);
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type'), /application\/json/);
       assert.equal(response.headers.get('cache-control'), 'no-store');
-      assert.deepEqual(data, before);
+      assert.deepEqual(data.map(({ projetos, ...employee }) => employee), before);
+      for (const employee of data) {
+        const expectedProjects = projectsBefore
+          .filter((project) => project.funcionario_id === employee.eid)
+          .map(({ funcionario_id, ...project }) => project);
+        assert.deepEqual(employee.projetos, expectedProjects);
+      }
     });
     await t.test('GET por EID retorna o registro exato', async (subtest) => {
       if (!before.length) return subtest.skip('Banco sem cadastros para consulta individual.');

@@ -29,7 +29,7 @@ Usamos `npm.cmd` para funcionar mesmo quando o PowerShell bloqueia `npm.ps1`.
 Em outra máquina, instale primeiro o Node.js LTS (22 ou superior) e configure
 acesso a um servidor PostgreSQL com a tabela existente.
 
-A tela consulta os funcionários ao abrir; o botão **Listar Funcionários**
+A tela consulta os funcionários ao abrir; o botão **Refresh**
 atualiza os dados. É possível cadastrar e editar funcionários pelo modal. A
 seção **Projetos** permite criar e editar projetos, abrir a tabela individual de
 cada equipe e vincular ou remover funcionários existentes. Um funcionário pode
@@ -124,8 +124,9 @@ registros ou tabelas.
 | POST | `/api/projetos/:id/funcionarios` | Vincula um ou vários EIDs existentes |
 | DELETE | `/api/projetos/:id/funcionarios/:eid` | Remove somente o vínculo |
 
-A listagem executa `SELECT * FROM public.funcionarios ORDER BY eid`. As
-propriedades JSON têm os nomes reais das colunas. `nova_expiracao` retorna
+A listagem retorna todas as colunas de `public.funcionarios` e também o array
+`projetos`, agregado a partir dos vínculos de cada funcionário. As propriedades
+JSON das colunas mantêm os nomes reais. `nova_expiracao` retorna
 `YYYY-MM-DD` ou `null`, sem conversão de fuso; os timestamps retornam como
 ISO 8601 em UTC.
 

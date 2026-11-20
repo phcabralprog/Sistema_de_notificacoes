@@ -1,7 +1,6 @@
 const ui = {
   button: document.querySelector('#load-button'),
   search: document.querySelector('#search'),
-  status: document.querySelector('#status'),
   body: document.querySelector('#employees'),
   notice: document.querySelector('#notice'),
   directory: document.querySelector('#employees-view .directory'),
@@ -17,6 +16,8 @@ const state = {
   employeesLoaded: false,
   projectsLoaded: false,
   employeeLoadFailed: false,
+  employeeQuickFilter: null,
+  projectQuickFilter: null,
   editingEmployee: null,
   editingProject: null,
 };
@@ -122,6 +123,25 @@ function eidCell(row, value) {
   td.replaceChildren(eid);
 }
 
+function projectsCell(row, projects = []) {
+  const td = cell(row, '');
+  td.className = 'projects-cell';
+  if (!projects.length) {
+    td.textContent = '—';
+    td.classList.add('muted');
+    return;
+  }
+  const list = document.createElement('div');
+  list.className = 'table-project-list';
+  projects.forEach((project) => {
+    const item = document.createElement('span');
+    item.className = `table-project-tag status-${project.status}`;
+    item.textContent = project.nome;
+    list.append(item);
+  });
+  td.replaceChildren(list);
+}
+
 function statusCell(row, value) {
   const td = cell(row, '');
   const badge = document.createElement('span');
@@ -140,9 +160,10 @@ function expirationCell(row, person) {
   }
 }
 
-function employeeBaseCells(row, person, index, editable = false) {
+function employeeBaseCells(row, person, index, editable = false, includeProjects = false) {
   identityCell(row, person, index, editable);
   eidCell(row, person.eid);
+  if (includeProjects) projectsCell(row, person.projetos);
   cell(row, person.torre);
   cell(row, person.login);
   cell(row, person.login_elevado);
@@ -150,6 +171,90 @@ function employeeBaseCells(row, person, index, editable = false) {
   expirationCell(row, person);
   cell(row, person.acessos, 'text-cell');
   cell(row, person.observacao, 'text-cell');
+}
+
+function makeEmployeeRowInteractive(row, person) {
+  row.classList.add('employee-row');
+  row.tabIndex = 0;
+  row.title = `Abrir dados de ${person.nome}`;
+  row.setAttribute('aria-label', `Abrir dados de ${person.nome}`);
+  row.addEventListener('click', (event) => {
+    if (event.target.closest('button, a, input, select, textarea')) return;
+    openEmployeeDialog(person);
+  });
+  row.addEventListener('keydown', (event) => {
+    if (event.target !== row || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    openEmployeeDialog(person);
+  });
+}
+
+const employeeTextAttributes = ['nome', 'eid', 'torre', 'login', 'login_elevado', 'acessos', 'observacao'];
+const employeeDateAttributes = ['nova_expiracao', 'criado_em', 'atualizado_em'];
+const emptyFilterValue = '__empty__';
+
+function employeeAttributeValues(person, attribute) {
+  if (attribute === 'projetos') return (person.projetos || []).map((project) => project.nome);
+  if (attribute === 'status') return person.status ? [person.status] : [];
+  const value = person[attribute];
+  if (value === null || value === undefined || value === '') return [];
+  if (employeeDateAttributes.includes(attribute)) return [String(value).slice(0, 10)];
+  return [String(value)];
+}
+
+function employeeAttributeLabel(value, attribute) {
+  if (attribute === 'status') return statusLabels[value] || value;
+  return employeeDateAttributes.includes(attribute) ? value.split('-').reverse().join('/') : value;
+}
+
+function populateEmployeeFilterValues() {
+  const attribute = document.querySelector('#employee-filter-attribute').value;
+  const select = document.querySelector('#employee-filter-value');
+  const currentValue = select.value;
+  if (!attribute) {
+    select.replaceChildren(new Option('Todos', ''));
+    select.disabled = true;
+    return;
+  }
+  const values = new Set();
+  let hasEmptyValue = false;
+  state.employees.forEach((person) => {
+    const personValues = employeeAttributeValues(person, attribute);
+    if (!personValues.length) hasEmptyValue = true;
+    personValues.forEach((value) => values.add(value));
+  });
+  const options = [new Option('Todos', '')];
+  if (hasEmptyValue) options.push(new Option('Sem informação', emptyFilterValue));
+  [...values]
+    .sort((first, second) => employeeAttributeLabel(first, attribute).localeCompare(employeeAttributeLabel(second, attribute), 'pt-BR'))
+    .forEach((value) => options.push(new Option(employeeAttributeLabel(value, attribute), value)));
+  select.replaceChildren(...options);
+  select.value = [...select.options].some((option) => option.value === currentValue) ? currentValue : '';
+  select.disabled = false;
+}
+
+function employeeSearchValues(person) {
+  const expiration = person.nova_expiracao || '';
+  return [
+    ...employeeTextAttributes.map((attribute) => person[attribute]),
+    ...(person.projetos || []).flatMap((project) => [project.nome, project.status]),
+    person.status,
+    statusLabels[person.status],
+    expiration,
+    expiration ? expiration.split('-').reverse().join('/') : '',
+    person.criado_em,
+    person.atualizado_em,
+  ];
+}
+
+function matchesEmployeeAttributeFilters(person) {
+  const attribute = document.querySelector('#employee-filter-attribute').value;
+  const filter = document.querySelector('#employee-filter-value').value;
+  if (!attribute || !filter) return true;
+  const values = employeeAttributeValues(person, attribute);
+  return filter === emptyFilterValue
+    ? !values.length
+    : values.some((value) => normalize(value) === normalize(filter));
 }
 
 function statsFor(employees) {
@@ -162,6 +267,51 @@ function statsFor(employees) {
   };
 }
 
+function matchesQuickFilter(person, filter) {
+  if (!filter) return true;
+  if (filter === 'active') return person.status === 'ativo';
+  if (filter === 'expiring') {
+    return person.status === 'ativo'
+      && person.nova_expiracao
+      && person.nova_expiracao >= today()
+      && person.nova_expiracao <= expirationIn30Days();
+  }
+  if (filter === 'expired') {
+    return person.status === 'ativo' && person.nova_expiracao && person.nova_expiracao < today();
+  }
+  return true;
+}
+
+function updateQuickFilterButtons(attribute, selected) {
+  document.querySelectorAll(`[${attribute}]`).forEach((button) => {
+    const isSelected = button.getAttribute(attribute) === (selected || 'all');
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', String(isSelected));
+  });
+}
+
+function scrollToDirectory(element) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+function setEmployeeQuickFilter(filter, shouldScroll = true) {
+  state.employeeQuickFilter = filter === 'all' ? null : filter;
+  document.querySelector('#employee-filter-attribute').value = '';
+  populateEmployeeFilterValues();
+  updateQuickFilterButtons('data-employee-filter', state.employeeQuickFilter);
+  renderEmployees();
+  if (shouldScroll) scrollToDirectory(ui.directory);
+}
+
+function setProjectQuickFilter(filter, shouldScroll = true) {
+  state.projectQuickFilter = filter === 'all' ? null : filter;
+  document.querySelector('#project-status-filter').value = '';
+  updateQuickFilterButtons('data-project-filter', state.projectQuickFilter);
+  renderProjectEmployees();
+  if (shouldScroll) scrollToDirectory(ui.projectDirectory);
+}
+
 function updateEmployeeStats() {
   const values = statsFor(state.employees);
   values['nav-count'] = state.employees.length;
@@ -171,22 +321,17 @@ function updateEmployeeStats() {
 function renderEmployees() {
   const term = normalize(ui.search.value.trim());
   const visible = state.employees.filter((person) =>
-    (!ui.status.value || person.status === ui.status.value)
-    && (normalize(person.nome).includes(term) || normalize(person.eid).includes(term)),
+    matchesQuickFilter(person, state.employeeQuickFilter)
+    && matchesEmployeeAttributeFilters(person)
+    && (!term || employeeSearchValues(person).some((value) => normalize(value).includes(term))),
   ).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const fragment = document.createDocumentFragment();
   visible.forEach((person, index) => {
     const row = document.createElement('tr');
-    employeeBaseCells(row, person, index, true);
+    employeeBaseCells(row, person, index, false, true);
     cell(row, person.criado_em ? dateTime.format(new Date(person.criado_em)) : null);
     cell(row, person.atualizado_em ? dateTime.format(new Date(person.atualizado_em)) : null);
-    const actions = cell(row, '');
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'link-danger';
-    remove.textContent = 'Excluir funcionário';
-    remove.addEventListener('click', () => deleteEmployee(person, remove));
-    actions.replaceChildren(remove);
+    makeEmployeeRowInteractive(row, person);
     fragment.append(row);
   });
   ui.body.replaceChildren(fragment);
@@ -208,13 +353,14 @@ async function loadEmployees() {
     if (!Array.isArray(data)) throw new Error('A consulta retornou um formato inesperado.');
     state.employees = data;
     state.employeesLoaded = true;
+    populateEmployeeFilterValues();
     updateEmployeeStats();
     renderEmployees();
     document.querySelector('#updated-at').textContent = `Atualizado às ${new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date())}`;
   } catch (error) {
     state.employeeLoadFailed = true;
     const message = error.name === 'TimeoutError'
-      ? 'A consulta demorou mais que o esperado. Clique em Listar Funcionários para tentar novamente.'
+      ? 'A consulta demorou mais que o esperado. Clique em Refresh para tentar novamente.'
       : 'Não foi possível carregar os funcionários. Verifique se o servidor está ativo e tente novamente.';
     setNotice(ui.notice, state.employeesLoaded ? `${message} A tabela mantém os dados da última consulta.` : message, true);
     document.querySelector('#updated-at').textContent = state.employeesLoaded ? 'Falha ao atualizar · dados da última consulta' : 'Consulta indisponível';
@@ -228,17 +374,75 @@ function formValues(form) {
   return Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, value === '' ? null : value]));
 }
 
+function renderEmployeeProjects(projects) {
+  const list = document.querySelector('#employee-project-list');
+  const fragment = document.createDocumentFragment();
+  document.querySelector('#employee-project-count').textContent = projects.length;
+  if (!projects.length) {
+    const empty = document.createElement('p');
+    empty.className = 'employee-project-empty';
+    empty.textContent = 'Este funcionário ainda não está alocado em nenhum projeto.';
+    fragment.append(empty);
+  } else {
+    projects.forEach((project) => {
+      const item = document.createElement('div');
+      item.className = 'employee-project-item';
+      const name = document.createElement('strong');
+      name.textContent = project.nome;
+      const status = document.createElement('span');
+      status.className = `status-pill status-${project.status}`;
+      status.textContent = statusLabels[project.status] || project.status;
+      item.append(name, status);
+      fragment.append(item);
+    });
+  }
+  list.replaceChildren(fragment);
+}
+
+async function loadEmployeeProjects(person) {
+  const list = document.querySelector('#employee-project-list');
+  document.querySelector('#employee-project-count').textContent = '…';
+  list.textContent = 'Carregando projetos…';
+  list.setAttribute('aria-busy', 'true');
+  try {
+    const projects = await request(`/api/funcionarios/${encodeURIComponent(person.eid)}/projetos`);
+    if (state.editingEmployee?.eid !== person.eid) return;
+    if (!Array.isArray(projects)) throw new Error('A consulta de projetos retornou um formato inesperado.');
+    renderEmployeeProjects(projects);
+  } catch (error) {
+    if (state.editingEmployee?.eid !== person.eid) return;
+    document.querySelector('#employee-project-count').textContent = '—';
+    list.textContent = 'Não foi possível carregar os projetos deste funcionário.';
+    list.classList.add('error');
+  } finally {
+    if (state.editingEmployee?.eid === person.eid) list.setAttribute('aria-busy', 'false');
+  }
+}
+
 function openEmployeeDialog(person = null) {
   state.editingEmployee = person;
   const form = document.querySelector('#employee-form');
+  const auditFields = document.querySelector('#employee-audit-fields');
+  const projectsSection = document.querySelector('#employee-projects');
+  const projectsList = document.querySelector('#employee-project-list');
+  const deleteButton = document.querySelector('#delete-employee-button');
   form.reset();
+  projectsList.classList.remove('error');
+  projectsList.replaceChildren();
   document.querySelector('#employee-form-message').textContent = '';
-  document.querySelector('#employee-form-title').textContent = person ? 'Editar funcionário' : 'Adicionar funcionário';
+  document.querySelector('#employee-form-title').textContent = person ? 'Dados do funcionário' : 'Adicionar funcionário';
   form.elements.eid.disabled = Boolean(person);
+  auditFields.hidden = !person;
+  projectsSection.hidden = !person;
+  deleteButton.hidden = !person;
   if (person) {
     for (const name of ['nome', 'eid', 'torre', 'login', 'login_elevado', 'status', 'nova_expiracao', 'acessos', 'observacao']) {
       form.elements[name].value = person[name] ?? '';
     }
+    document.querySelector('#employee-created-at').value = person.criado_em ? dateTime.format(new Date(person.criado_em)) : '—';
+    document.querySelector('#employee-updated-at').value = person.atualizado_em ? dateTime.format(new Date(person.atualizado_em)) : '—';
+    if (Array.isArray(person.projetos)) renderEmployeeProjects(person.projetos);
+    else loadEmployeeProjects(person);
   }
   document.querySelector('#employee-dialog').showModal();
 }
@@ -394,6 +598,7 @@ function renderProjectEmployees() {
   const statusFilter = document.querySelector('#project-status-filter').value;
   const visible = state.projectEmployees.filter((person) =>
     (!statusFilter || person.status === statusFilter)
+    && matchesQuickFilter(person, state.projectQuickFilter)
     && (normalize(person.nome).includes(term) || normalize(person.eid).includes(term)),
   );
   const fragment = document.createDocumentFragment();
@@ -406,15 +611,11 @@ function renderProjectEmployees() {
     remove.className = 'link-action';
     remove.textContent = 'Remover do projeto';
     remove.addEventListener('click', () => removeFromProject(person));
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'link-danger';
-    deleteButton.textContent = 'Excluir funcionário';
-    deleteButton.addEventListener('click', () => deleteEmployee(person, deleteButton));
     const actionGroup = document.createElement('div');
     actionGroup.className = 'row-actions';
-    actionGroup.append(remove, deleteButton);
+    actionGroup.append(remove);
     actions.replaceChildren(actionGroup);
+    makeEmployeeRowInteractive(row, person);
     fragment.append(row);
   });
   document.querySelector('#project-employees').replaceChildren(fragment);
@@ -446,6 +647,9 @@ async function openProject(id) {
   try {
     const project = state.projects.find((item) => String(item.id) === String(id)) || await request(`/api/projetos/${id}`);
     state.currentProject = project;
+    state.projectQuickFilter = null;
+    document.querySelector('#project-status-filter').value = '';
+    updateQuickFilterButtons('data-project-filter', null);
     window.location.hash = `projeto/${project.id}`;
     showView('project-detail');
     updateProjectHeader();
@@ -479,6 +683,9 @@ async function deleteEmployee(person, trigger) {
     if (state.projectsLoaded) refreshes.push(loadProjects());
     if (state.currentProject) refreshes.push(loadProjectEmployees());
     await Promise.all(refreshes);
+    const employeeDialog = document.querySelector('#employee-dialog');
+    if (employeeDialog.open && state.editingEmployee?.eid === person.eid) employeeDialog.close();
+    state.editingEmployee = null;
     toast('Funcionário excluído. Seus vínculos com projetos também foram removidos.');
   } catch (error) {
     toast(error.message, true);
@@ -571,9 +778,37 @@ async function navigateFromHash() {
 
 ui.button.addEventListener('click', loadEmployees);
 ui.search.addEventListener('input', renderEmployees);
-ui.status.addEventListener('change', renderEmployees);
+document.querySelector('#employee-filter-attribute').addEventListener('change', () => {
+  populateEmployeeFilterValues();
+  state.employeeQuickFilter = null;
+  updateQuickFilterButtons('data-employee-filter', null);
+  renderEmployees();
+});
+document.querySelector('#employee-filter-value').addEventListener('change', () => {
+  state.employeeQuickFilter = null;
+  updateQuickFilterButtons('data-employee-filter', null);
+  renderEmployees();
+});
+document.querySelector('#clear-employee-filters').addEventListener('click', () => {
+  ui.search.value = '';
+  document.querySelector('#employee-filter-attribute').value = '';
+  populateEmployeeFilterValues();
+  state.employeeQuickFilter = null;
+  updateQuickFilterButtons('data-employee-filter', null);
+  renderEmployees();
+  ui.search.focus();
+});
+document.querySelectorAll('[data-employee-filter]').forEach((button) => {
+  button.addEventListener('click', () => setEmployeeQuickFilter(button.dataset.employeeFilter));
+});
+document.querySelectorAll('[data-project-filter]').forEach((button) => {
+  button.addEventListener('click', () => setProjectQuickFilter(button.dataset.projectFilter));
+});
 document.querySelector('#add-employee-button').addEventListener('click', () => openEmployeeDialog());
 document.querySelector('#employee-form').addEventListener('submit', saveEmployee);
+document.querySelector('#delete-employee-button').addEventListener('click', (event) => {
+  if (state.editingEmployee) deleteEmployee(state.editingEmployee, event.currentTarget);
+});
 document.querySelector('#create-project-button').addEventListener('click', () => openProjectDialog());
 document.querySelector('#project-form').addEventListener('submit', saveProject);
 document.querySelector('#reload-projects').addEventListener('click', loadProjects);
@@ -583,7 +818,11 @@ document.querySelector('#add-to-project-button').addEventListener('click', openA
 document.querySelector('#association-form').addEventListener('submit', saveAssociations);
 document.querySelector('#association-search').addEventListener('input', renderAssociationChoices);
 document.querySelector('#project-search').addEventListener('input', renderProjectEmployees);
-document.querySelector('#project-status-filter').addEventListener('change', renderProjectEmployees);
+document.querySelector('#project-status-filter').addEventListener('change', () => {
+  state.projectQuickFilter = null;
+  updateQuickFilterButtons('data-project-filter', null);
+  renderProjectEmployees();
+});
 document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => button.closest('dialog').close()));
 window.addEventListener('hashchange', navigateFromHash);
 

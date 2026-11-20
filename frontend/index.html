@@ -41,33 +41,37 @@
               <button class="secondary-button" id="add-employee-button" type="button">+ Adicionar Funcionário</button>
               <button class="primary-button" id="load-button" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1A8.3 8.3 0 0 1 20 12M4 12a8.3 8.3 0 0 0 13.9 5.9"/></svg>
-                <span>Listar Funcionários</span>
+                <span>Refresh</span>
               </button>
             </div>
           </div>
 
           <section class="stats" aria-label="Resumo dos cadastros">
-            <article class="stat"><span class="stat-label">Total de funcionários</span><strong id="total">—</strong><span class="stat-caption">Cadastros únicos no diretório</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="active">—</strong><span class="stat-caption">Status do cadastro</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="expiring">—</strong><span class="stat-caption">Ativos · próximos 30 dias</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="expired">—</strong><span class="stat-caption">Ativos · data ultrapassada</span></article>
+            <button class="stat stat-filter is-selected" type="button" data-employee-filter="all" aria-label="Mostrar todos os funcionários" aria-pressed="true"><span class="stat-label">Total de funcionários</span><strong id="total">—</strong><span class="stat-caption">Mostrar todos os cadastros</span></button>
+            <button class="stat stat-filter" type="button" data-employee-filter="active" aria-label="Mostrar funcionários ativos" aria-pressed="false"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="active">—</strong><span class="stat-caption">Clique para mostrar a lista</span></button>
+            <button class="stat stat-filter" type="button" data-employee-filter="expiring" aria-label="Mostrar funcionários a vencer" aria-pressed="false"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="expiring">—</strong><span class="stat-caption">Ativos · próximos 30 dias</span></button>
+            <button class="stat stat-filter" type="button" data-employee-filter="expired" aria-label="Mostrar funcionários vencidos" aria-pressed="false"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="expired">—</strong><span class="stat-caption">Ativos · data ultrapassada</span></button>
           </section>
 
           <section class="directory" aria-labelledby="directory-heading" aria-busy="false">
             <div class="directory-title"><div><h2 id="directory-heading">Todos os funcionários <span id="result-count" class="count-badge">0</span></h2><p>Consulte, cadastre e edite os dados dos funcionários.</p></div><span class="updated-at" id="updated-at">Ainda não atualizado</span></div>
             <div class="toolbar">
-              <label class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">Pesquisar por nome ou EID</span><input id="search" type="search" placeholder="Pesquisar por nome ou EID..." autocomplete="off"></label>
-              <label class="status-filter"><span>Status</span><select id="status"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="pendente">Pendente</option><option value="bloqueado">Bloqueado</option><option value="inativo">Inativo</option></select></label>
+              <label class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="sr-only">Pesquisar em todos os atributos</span><input id="search" type="search" placeholder="Busca rápida em todos os atributos..." autocomplete="off"></label>
+              <button class="text-button clear-filters" id="clear-employee-filters" type="button">Limpar filtros</button>
+            </div>
+            <div class="attribute-filters" id="employee-attribute-filters" aria-label="Filtros por atributo do funcionário">
+              <label class="attribute-filter"><span>Filtrar por</span><select id="employee-filter-attribute"><option value="">Selecione um atributo</option><option value="nome">Nome</option><option value="eid">EID</option><option value="projetos">Projetos alocados</option><option value="torre">Torre</option><option value="login">Login</option><option value="login_elevado">Login elevado</option><option value="status">Status</option><option value="nova_expiracao">Nova expiração</option><option value="acessos">Acessos</option><option value="observacao">Observação</option><option value="criado_em">Criado em</option><option value="atualizado_em">Atualizado em</option></select></label>
+              <label class="attribute-filter"><span>Valor</span><select id="employee-filter-value" disabled><option value="">Todos</option></select></label>
             </div>
             <div class="notice" id="notice" role="status" aria-live="polite">Carregando funcionários…</div>
             <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de funcionários; role horizontalmente para ver todas as colunas">
-              <table>
+              <table class="employees-table">
                 <caption class="sr-only">Funcionários, identificadores, acessos e datas de cadastro</caption>
-                <thead><tr><th scope="col">Nome</th><th scope="col">EID</th><th scope="col">Torre</th><th scope="col">Login</th><th scope="col">Login elevado</th><th scope="col">Status</th><th scope="col">Nova expiração</th><th scope="col">Acessos</th><th scope="col">Observação</th><th scope="col">Criado em</th><th scope="col">Atualizado em</th><th scope="col">Ações</th></tr></thead>
+                <thead><tr><th scope="col">Nome</th><th scope="col">EID</th><th scope="col">Projetos alocados</th><th scope="col">Torre</th><th scope="col">Login</th><th scope="col">Login elevado</th><th scope="col">Status</th><th scope="col">Nova expiração</th><th scope="col">Acessos</th><th scope="col">Observação</th><th scope="col">Criado em</th><th scope="col">Atualizado em</th></tr></thead>
                 <tbody id="employees"></tbody>
               </table>
             </div>
-            <div class="table-footer"><span id="table-summary">Aguardando consulta</span><span>Selecione um nome para editar · use Excluir para apagar o cadastro <span aria-hidden="true">↔</span></span></div>
+            <div class="table-footer"><span id="table-summary">Aguardando consulta</span><span>Clique em qualquer atributo para abrir os dados do funcionário <span aria-hidden="true">↔</span></span></div>
           </section>
           <footer class="page-footer"><span><span class="dot green" aria-hidden="true"></span> Diretório de funcionários</span><span>Datas de expiração não alteram o status do cadastro.</span></footer>
         </section>
@@ -91,10 +95,10 @@
             <div class="heading-actions"><button class="secondary-button" id="edit-project-button" type="button">Editar projeto</button><button class="primary-button" id="add-to-project-button" type="button">+ Adicionar Funcionário ao Projeto</button></div>
           </div>
           <section class="stats" aria-label="Resumo do projeto">
-            <article class="stat"><span class="stat-label">Funcionários vinculados</span><strong id="project-total">0</strong><span class="stat-caption">Cadastros únicos neste projeto</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="project-active">0</strong><span class="stat-caption">Status do cadastro</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="project-expiring">0</strong><span class="stat-caption">Ativos · próximos 30 dias</span></article>
-            <article class="stat"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="project-expired">0</strong><span class="stat-caption">Ativos · data ultrapassada</span></article>
+            <button class="stat stat-filter is-selected" type="button" data-project-filter="all" aria-label="Mostrar toda a equipe do projeto" aria-pressed="true"><span class="stat-label">Funcionários vinculados</span><strong id="project-total">0</strong><span class="stat-caption">Mostrar toda a equipe</span></button>
+            <button class="stat stat-filter" type="button" data-project-filter="active" aria-label="Mostrar funcionários ativos do projeto" aria-pressed="false"><span class="stat-label"><span class="dot green" aria-hidden="true"></span>Ativos</span><strong id="project-active">0</strong><span class="stat-caption">Clique para mostrar a lista</span></button>
+            <button class="stat stat-filter" type="button" data-project-filter="expiring" aria-label="Mostrar funcionários a vencer do projeto" aria-pressed="false"><span class="stat-label"><span class="dot amber" aria-hidden="true"></span>A vencer</span><strong id="project-expiring">0</strong><span class="stat-caption">Ativos · próximos 30 dias</span></button>
+            <button class="stat stat-filter" type="button" data-project-filter="expired" aria-label="Mostrar funcionários vencidos do projeto" aria-pressed="false"><span class="stat-label"><span class="dot red" aria-hidden="true"></span>Vencidos</span><strong id="project-expired">0</strong><span class="stat-caption">Ativos · data ultrapassada</span></button>
           </section>
           <section class="directory" aria-labelledby="project-table-heading" aria-busy="false">
             <div class="directory-title"><div><h2 id="project-table-heading">Equipe <span id="project-result-count" class="count-badge">0</span></h2><p>Remova apenas o vínculo ou exclua definitivamente o cadastro.</p></div><span class="project-status-badge" id="project-status-badge">Ativo</span></div>
@@ -126,9 +130,17 @@
         <label>Expiração<input name="nova_expiracao" type="date"></label>
         <label class="full-field">Acessos<textarea name="acessos" rows="3"></textarea></label>
         <label class="full-field">Observação<textarea name="observacao" rows="3"></textarea></label>
+        <div class="audit-fields full-field" id="employee-audit-fields" hidden>
+          <label>Criado em<input id="employee-created-at" type="text" readonly></label>
+          <label>Atualizado em<input id="employee-updated-at" type="text" readonly></label>
+        </div>
+        <section class="employee-projects full-field" id="employee-projects" aria-labelledby="employee-projects-title" hidden>
+          <h3 id="employee-projects-title">Projetos alocados <span id="employee-project-count">0</span></h3>
+          <div class="employee-project-list" id="employee-project-list" role="status" aria-live="polite"></div>
+        </section>
       </div>
       <div class="form-message" id="employee-form-message" aria-live="polite"></div>
-      <div class="modal-actions"><button class="secondary-button" type="button" data-close-dialog>Cancelar</button><button class="primary-button" type="submit">Salvar funcionário</button></div>
+      <div class="modal-actions"><button class="danger-button" id="delete-employee-button" type="button" hidden>Excluir funcionário</button><button class="secondary-button" type="button" data-close-dialog>Cancelar</button><button class="primary-button" type="submit">Salvar funcionário</button></div>
     </form>
   </dialog>
 
